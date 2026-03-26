@@ -21,3 +21,14 @@ struct Lexer {
 };
 
 //add functions to let the code read through input such as peek, peekNext, advance, isAtEnd
+
+char peek(struct Lexer *lexer) {
+    if (lexer->pos >= lexer->totalLength) {
+        return '\0';
+    }
+    //dont advance just return the position, advance will be in peek next
+    return lexer->src[lexer->pos];
+}
+
+//for peek next last return would be return lexer->src[lexer->pos++];
+
