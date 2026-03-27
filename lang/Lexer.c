@@ -32,7 +32,7 @@ char peek(struct Lexer *lexer) {
 
 //for peek next last return would be return lexer->src[lexer->pos++];
 char peekNext(struct Lexer *lexer) {
-    if(lexer->pos >= lexer->totalLength) {
+    if(lexer->pos +1 >= lexer->totalLength) {
         return '\0';
     }
     return lexer->src[lexer->pos++];
@@ -47,9 +47,9 @@ char advance(struct Lexer *lexer) {
     char current = lexer->src[lexer->pos];
     lexer->pos++;
     //resets line and column(goes to the next one)
-    if(current = '\n') {
+    if(current == '\n') {
         lexer->currentLine++;
-        lexer->currentColumn = 0;
+        lexer->currentColumn = 1;
     } else {
         lexer->currentColumn++;
     }
@@ -62,4 +62,67 @@ int isAtEnd(struct Lexer *lexer) {
     return lexer->pos >= lexer->totalLength;
 }
 
-//next reminder to create the Token parser here or in another file, see how C structures work first
+
+// helper to make tokens
+struct Token makeToken(struct Lexer *lexer, int type, const char *text, size_t len) {
+    struct Token tok;
+    tok.type = type;
+    tok.line = lexer->currentLine;
+    tok.column = lexer->currentColumn - (int)len;
+    
+    tok.value = malloc(len + 1);
+    strncpy(tok.value, text, len);
+    tok.value[len] = '\0';
+    
+    return tok;
+}
+
+void skipWhiteSpace(struct Lexer *lexer) {
+    while(!isAtEnd(lexer)) {
+        char c = peek(lexer);
+        if(c == ' ' || c == '\t' || c == '\n' || c == '\r') {
+            advance(lexer);
+        } else {
+            break;
+        }
+    }
+}
+
+struct Token parseNumbers(struct Lexer *lexer) {
+    size_t start = lexer->pos;
+    int startCol = lexer->currentColumn;
+
+    while(isdigit(peek(lexer))) advance(lexer);
+
+    if(peek(lexer) == '.' && isdigit(peekNext(lexer))) {
+        advance(lexer);
+        while(isdigit(peek(lexer))) advance(lexer);
+    }
+
+    size_t len = lexer->pos - start;
+    struct Token tok = makeToken(lexer, Num, lexer->src + start, len);
+    tok.column = startCol;
+    return tok;
+}
+
+struct Token parseID(struct Lexer *lexer) {
+    size_t start = lexer->pos;
+    int startCol = lexer->currentColumn;
+
+    while(isalnum(peek(lexer)) || peek(lexer) == '_') {
+        advance(lexer);
+    }
+
+    size_t len = lexer->pos - start;
+    char *text = strndup(lexer->src + start, len);
+
+    int type = Id;
+    //add sql keywords: WHERE, SELECT ... too lazy to do it right now though
+
+    struct Token tok makeToken(lexer, type, text, len);
+    tok.column = startCol;
+    free(text);
+    return tok;
+}
+
+//make parseString and nextToken functions later
