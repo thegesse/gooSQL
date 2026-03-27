@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
 
 //note to self to seperate this into a C and header file when starting to add the AST and parser
 
@@ -37,7 +39,7 @@ char peekNext(struct Lexer *lexer) {
     if(lexer->pos +1 >= lexer->totalLength) {
         return '\0';
     }
-    return lexer->src[lexer->pos++];
+    return lexer->src[lexer->pos + 1];
 }
 
 
@@ -107,7 +109,7 @@ struct Token parseNumbers(struct Lexer *lexer) {
     return tok;
 }
 
-struct Token parseID(struct Lexer *lexer) {
+struct Token parseIdentifier(struct Lexer *lexer) {
     size_t start = lexer->pos;
     int startCol = lexer->currentColumn;
 
@@ -133,8 +135,8 @@ struct Token parseString(struct Lexer *lexer) {
     size_t start = lexer ->pos;
     int startCol = lexer->currentColumn;
 
-    while(!isAtEnd(lexer) && peak(lexer) != quote){
-        if(peak(lexer) == '\\') advance(lexer); //escape
+    while(!isAtEnd(lexer) && peek(lexer) != quote){
+        if(peek(lexer) == '\\') advance(lexer); //escape
         advance(lexer);
     }
     //handles error for undetermined string
@@ -147,6 +149,64 @@ struct Token parseString(struct Lexer *lexer) {
     tok.column = startCol;
 
     advance(lexer);
+    return tok;
+}
+
+struct Token nextToken(struct Lexer *lexer) {
+    skipWhiteSpace(lexer);
+
+    if(isAtEnd(lexer)) {
+        struct Token tok = makeToken(lexer, Eof, "", 0);
+        return tok;
+    }
+
+    char c = peek(lexer);
+    int startCol = lexer->currentColumn;
+
+    //handling numbers
+    if (isdigit(c)) {
+        return parseNumbers(lexer);
+    }
+
+    //handle Identifiers
+    if(isalpha(c) || c == '_') {
+        return parseIdentifier(lexer);
+    }
+
+    //handle Strings
+    if(c == '\'' || c == '"') {
+        return parseString(lexer);
+    }
+
+    // operations
+    char next = peekNext(lexer);
+    if(c == '!' && next == '=') {
+        //advance twice to consume both characters
+        advance(lexer);
+        advance(lexer);
+        struct Token tok = makeToken(lexer, Ne, "!=", 2);
+        tok.column = startCol;
+        return tok;
+    }
+
+    if(c == '<' && next == '=') {
+        advance(lexer);
+        advance(lexer);
+        struct Token tok = makeToken(lexer, Le, "<=", 2);
+        tok.column = startCol;
+        return tok;
+    }
+
+    if(c == '>' && next == '=') {
+        advance(lexer);
+        advance(lexer);
+        struct Token tok = makeToken(lexer, Ge, ">=", 2);
+        return tok;
+    }
+
+    advance(lexer);
+    struct Token tok = makeToken(lexer, c, &c, 1);
+    tok.column = startCol;
     return tok;
 }
 //make nextToken function == main function Ill call all the time
