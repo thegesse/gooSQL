@@ -31,4 +31,35 @@ char peek(struct Lexer *lexer) {
 }
 
 //for peek next last return would be return lexer->src[lexer->pos++];
+char peekNext(struct Lexer *lexer) {
+    if(lexer->pos >= lexer->totalLength) {
+        return '\0';
+    }
+    return lexer->src[lexer->pos++];
+}
 
+
+//actually advances the position of the cursor
+char advance(struct Lexer *lexer) {
+    if(lexer->pos >= lexer->totalLength) {
+        return '\0';
+    }
+    char current = lexer->src[lexer->pos];
+    lexer->pos++;
+    //resets line and column(goes to the next one)
+    if(current = '\n') {
+        lexer->currentLine++;
+        lexer->currentColumn = 0;
+    } else {
+        lexer->currentColumn++;
+    }
+
+    return current;
+}
+
+//reminder not equal to Eof, just end of user input. Eof would be when creating a token
+int isAtEnd(struct Lexer *lexer) {
+    return lexer->pos >= lexer->totalLength;
+}
+
+//next reminder to create the Token parser here or in another file, see how C structures work first
