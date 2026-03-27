@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+//note to self to seperate this into a C and header file when starting to add the AST and parser
+
 //defines all tokens available, and starts at 128 to avoid ASCII errors, bc all values under 128 are for characters
 enum {
     Num = 128, Id, Str, Keyword, Ne, Le, Ge, Unknown, Eof
