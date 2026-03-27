@@ -119,10 +119,32 @@ struct Token parseID(struct Lexer *lexer) {
     int type = Id;
     //add sql keywords: WHERE, SELECT ... too lazy to do it right now though
 
-    struct Token tok makeToken(lexer, type, text, len);
+    struct Token tok = makeToken(lexer, type, text, len);
     tok.column = startCol;
     free(text);
     return tok;
 }
 
-//make parseString and nextToken functions later
+
+struct Token parseString(struct Lexer *lexer) {
+    char quote = advance(lexer); //consume quotes
+    size_t start = lexer ->pos;
+    int startCol = lexer->currentColumn;
+
+    while(!isAtEnd(lexer) && peak(lexer) != quote){
+        if(peak(lexer) == '\\') advance(lexer); //escape
+        advance(lexer);
+    }
+    //handles error for undetermined string
+    if(isAtEnd(lexer)) {
+        return makeToken(lexer, Unknown, "undetermined string", 19);
+    }
+
+    size_t len = lexer->pos - start;
+    struct Token tok = makeToken(lexer, Str, lexer->src + start, len);
+    tok.column = startCol;
+
+    advance(lexer);
+    return tok;
+}
+//make nextToken function == main function Ill call all the time
