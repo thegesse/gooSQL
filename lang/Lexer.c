@@ -3,8 +3,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdint.h>
-//note to self to seperate this into a C and header file when starting to add the AST and parser
-
+#include "lexer.h"
 
 typedef struct {
     const char *word;
@@ -82,26 +81,6 @@ void free_keywords(void) {
     }
 }
 
-//defines all tokens available, and starts at 128 to avoid ASCII errors, bc all values under 128 are for characters
-enum {
-    Num = 128, Id, Str, Keyword, Ne, Le, Ge, Eq, Unknown, Eof
-};
-struct Token {
-    int type; //value of enum
-    char *value; //token text
-    int line;
-    int column;
-};
-
-struct Lexer {
-    const char *src;
-    size_t pos;
-    size_t totalLength;
-    int currentLine;
-    int currentColumn;
-};
-
-//add functions to let the code read through input such as peek, peekNext, advance, isAtEnd
 
 char peek(struct Lexer *lexer) {
     if (lexer->pos >= lexer->totalLength) {
@@ -111,7 +90,6 @@ char peek(struct Lexer *lexer) {
     return lexer->src[lexer->pos];
 }
 
-//for peek next last return would be return lexer->src[lexer->pos++];
 char peekNext(struct Lexer *lexer) {
     if(lexer->pos +1 >= lexer->totalLength) {
         return '\0';
