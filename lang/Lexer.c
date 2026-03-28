@@ -2,12 +2,89 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
-
+#include <stdint.h>
 //note to self to seperate this into a C and header file when starting to add the AST and parser
+
+
+typedef struct {
+    const char *word;
+    int type;
+} KeywordEntry;
+
+// Small hash table
+#define KEYWORD_HASH_SIZE 64
+
+static KeywordEntry *keyword_table[KEYWORD_HASH_SIZE] = {NULL};
+
+// Simple hash function
+static uint32_t hash_keyword(const char *str) {
+    uint32_t hash = 5381;
+    int c;
+    while ((c = *str++)) {
+        hash = ((hash << 5) + hash) + c;
+    }
+    return hash % KEYWORD_HASH_SIZE;
+}
+
+// none case sensitive
+static uint32_t hash_keyword_ci(const char *str) {
+    uint32_t hash = 5381;
+    int c;
+    while ((c = *str++)) {
+        hash = ((hash << 5) + hash) + tolower(c);
+    }
+    return hash % KEYWORD_HASH_SIZE;
+}
+
+//keywords
+void init_keywords(void) {
+    static const char *keywords[] = {
+        "SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES",
+        "UPDATE", "SET", "DELETE", "CREATE", "TABLE", "DROP",
+        "ALTER", "AND", "OR", "NOT", "NULL", "TRUE", "FALSE",
+        "AS", "JOIN", "ON", "ORDER", "BY", "GROUP", "HAVING",
+        "LIMIT", "OFFSET", "PRIMARY", "KEY", "FOREIGN", "REFERENCES",
+        "INDEX", "UNIQUE", "DISTINCT", "ASC", "DESC", "BETWEEN",
+        "LIKE", "IN", "EXISTS", "CASE", "WHEN", "THEN", "ELSE", "END",
+        "COUNT", "SUM", "AVG", "MIN", "MAX", "LEFT", "RIGHT", "INNER", "OUTER",
+        NULL
+    };
+    
+    for (int i = 0; keywords[i]; i++) {
+        uint32_t h = hash_keyword(keywords[i]);
+        while (keyword_table[h] != NULL) {
+            h = (h + 1) % KEYWORD_HASH_SIZE;
+        }
+        keyword_table[h] = malloc(sizeof(KeywordEntry));
+        keyword_table[h]->word = keywords[i];
+        keyword_table[h]->type = Keyword;
+    }
+}
+
+int lookup_keyword(const char *str) {
+    uint32_t h = hash_keyword_ci(str);
+    
+    for (int i = 0; i < KEYWORD_HASH_SIZE; i++) {
+        int idx = (h + i) % KEYWORD_HASH_SIZE;
+        if (keyword_table[idx] == NULL) break; // Empty slot, not found
+        
+        if (strcasecmp(str, keyword_table[idx]->word) == 0) {
+            return keyword_table[idx]->type; // Found
+        }
+    }
+    return Id;
+}
+
+void free_keywords(void) {
+    for (int i = 0; i < KEYWORD_HASH_SIZE; i++) {
+        free(keyword_table[i]);
+        keyword_table[i] = NULL;
+    }
+}
 
 //defines all tokens available, and starts at 128 to avoid ASCII errors, bc all values under 128 are for characters
 enum {
-    Num = 128, Id, Str, Keyword, Ne, Le, Ge, Unknown, Eof
+    Num = 128, Id, Str, Keyword, Ne, Le, Ge, Eq, Unknown, Eof
 };
 struct Token {
     int type; //value of enum
@@ -84,11 +161,20 @@ struct Token makeToken(struct Lexer *lexer, int type, const char *text, size_t l
 void skipWhiteSpace(struct Lexer *lexer) {
     while(!isAtEnd(lexer)) {
         char c = peek(lexer);
+        
+        // Handle spaces, tabs, newlines first
         if(c == ' ' || c == '\t' || c == '\n' || c == '\r') {
             advance(lexer);
-        } else {
-            break;
+            continue;
         }
+        // Handle SQL comments --
+        if(c == '-' && peekNext(lexer) == '-') {
+            while(!isAtEnd(lexer) && peek(lexer) != '\n') {
+                advance(lexer);
+            }
+            continue;
+        }
+        break;
     }
 }
 
@@ -120,8 +206,7 @@ struct Token parseIdentifier(struct Lexer *lexer) {
     size_t len = lexer->pos - start;
     char *text = strndup(lexer->src + start, len);
 
-    int type = Id;
-    //add sql keywords: WHERE, SELECT ... too lazy to do it right now though
+    int type = lookup_keyword(text);
 
     struct Token tok = makeToken(lexer, type, text, len);
     tok.column = startCol;
@@ -129,10 +214,9 @@ struct Token parseIdentifier(struct Lexer *lexer) {
     return tok;
 }
 
-
 struct Token parseString(struct Lexer *lexer) {
     char quote = advance(lexer); //consume quotes
-    size_t start = lexer ->pos;
+    size_t start = lexer->pos;
     int startCol = lexer->currentColumn;
 
     while(!isAtEnd(lexer) && peek(lexer) != quote){
@@ -204,9 +288,15 @@ struct Token nextToken(struct Lexer *lexer) {
         return tok;
     }
 
+    if(c == '=' && next == '=') {
+        advance(lexer);
+        advance(lexer);
+        struct Token tok = makeToken(lexer, Eq, "==", 2);
+        return tok;
+    }
+
     advance(lexer);
     struct Token tok = makeToken(lexer, c, &c, 1);
     tok.column = startCol;
     return tok;
 }
-//make nextToken function == main function Ill call all the time
