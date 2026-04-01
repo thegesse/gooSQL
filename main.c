@@ -1,5 +1,8 @@
 #include <stdio.h>
 
-int main(void) {
+#include "lang/lexer.h"
 
+int main(void) {
+    init_keywords();
+    free_keywords();
 }

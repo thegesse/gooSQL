@@ -15,15 +15,6 @@ typedef struct {
 
 static KeywordEntry *keyword_table[KEYWORD_HASH_SIZE] = {NULL};
 
-// Simple hash function
-static uint32_t hash_keyword(const char *str) {
-    uint32_t hash = 5381;
-    int c;
-    while ((c = *str++)) {
-        hash = ((hash << 5) + hash) + c;
-    }
-    return hash % KEYWORD_HASH_SIZE;
-}
 
 // none case sensitive
 static uint32_t hash_keyword_ci(const char *str) {
@@ -50,7 +41,7 @@ void init_keywords(void) {
     };
     
     for (int i = 0; keywords[i]; i++) {
-        uint32_t h = hash_keyword(keywords[i]);
+        uint32_t h = hash_keyword_ci(keywords[i]);
         while (keyword_table[h] != NULL) {
             h = (h + 1) % KEYWORD_HASH_SIZE;
         }
