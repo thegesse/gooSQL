@@ -269,3 +269,12 @@ struct Token nextToken(struct Lexer *lexer) {
     tok.column = startCol;
     return tok;
 }
+
+void freeToken(struct Token *tok) {
+    if (tok == NULL) {
+        return;
+    }
+
+    free(tok->value);
+    tok->value = NULL;
+}
