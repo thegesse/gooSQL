@@ -56,6 +56,14 @@ void free_node(ASTNode *node) {
             free(node->data.select_stmt.table_name);
             free_node(node->data.select_stmt.where_clause);
             break;
+        case NODE_CREATE_TABLE_STMT:
+            free(node->data.create_table.table_name);
+            free_node(node->data.create_table.columns);
+            break;
+        case NODE_COLUMN_DEF:
+            free(node->data.column_def.column_name);
+            free(node->data.column_def.type_name);
+            break;
     }
     free(node);
 }
@@ -63,28 +71,26 @@ void free_node(ASTNode *node) {
 void print_operator(int op) {
     switch (op) {
         case '=':
-            printf("=\n");
+            printf("=");
             break;
         case '<':
-            printf("<\n");
+            printf("<");
             break;
         case '>':
-            printf(">\n");
+            printf(">");
             break;
         case Ne:
-            printf("!=\n");
+            printf("!=");
             break;
         case Le:
-            printf("<=\n");
+            printf("<=");
             break;
         case Ge:
-            printf(">=\n");
+            printf(">=");
             break;
         default:
             printf("UNKNOWN_OP(%d)\n", op);
             break;
-
-
     }
 }
 
@@ -149,7 +155,7 @@ void print_ast(ASTNode *node, int indent) {
             print_ast(node->data.select_stmt.select_list, indent);
 
             print_indent(indent + 2);
-            printf("TABLE: %s", node->data.select_stmt.table_name);
+            printf("TABLE: %s\n", node->data.select_stmt.table_name);
 
             if (node->data.select_stmt.where_clause != NULL) {
                 print_indent(indent + 2);
@@ -157,5 +163,26 @@ void print_ast(ASTNode *node, int indent) {
                 print_ast(node->data.select_stmt.where_clause, indent);
             }
             break;
+        case NODE_CREATE_TABLE_STMT:
+            print_indent(indent);
+            printf("CREATE_TABLE_STMT: \n");
+
+            print_indent(indent + 2);
+            printf("TABLE: %s\n", node->data.create_table.table_name);
+
+            print_indent(indent + 4);
+            printf("COLUMNS:\n");
+            print_ast(node->data.create_table.columns, indent + 4);
+            break;
+        case NODE_COLUMN_DEF:
+            print_indent(indent);
+            printf("COLUMN_DEF: \n");
+            print_indent(indent + 2);
+            printf("column name %s\n", node->data.column_def.column_name);
+            print_indent(indent + 4);
+            printf("DEF: %s\n", node->data.column_def.type_name);
+            break;
     }
 }
+
+//switch cases bc no polymorphism (fuck manual polymorphism, fuck C, fuck this project)

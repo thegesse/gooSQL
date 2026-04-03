@@ -1,7 +1,6 @@
 #ifndef AST_H
 #define AST_H
 
-#include<stdlib.h>
 typedef enum {
     NODE_ID,
     NODE_NUM,
@@ -10,7 +9,9 @@ typedef enum {
     NODE_WILDCARD,
     NODE_BINARY,
     NODE_COLUMN_LIST,
-    NODE_SELECT_STMT
+    NODE_SELECT_STMT,
+    NODE_CREATE_TABLE_STMT,
+    NODE_COLUMN_DEF
 } NodeType;
 
 typedef struct ASTNode {
@@ -32,6 +33,14 @@ typedef struct ASTNode {
             char* table_name;
             struct ASTNode* where_clause;
         } select_stmt;
+        struct {
+            char *table_name;
+            struct ASTNode *columns;
+        } create_table;
+        struct {
+            char *column_name;
+            char *type_name;
+        } column_def;
     } data;
 } ASTNode;
 
