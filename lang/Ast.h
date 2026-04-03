@@ -38,4 +38,6 @@ typedef struct ASTNode {
 
 ASTNode* create_node(NodeType type);
 void free_node(ASTNode *node);
+void print_node(ASTNode *node);
+void print_ast(ASTNode *node, int indent);
 #endif
