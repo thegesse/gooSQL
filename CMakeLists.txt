@@ -8,4 +8,6 @@ add_executable(gooSQL main.c
         lang/Parser.c
         lang/Parser.h
         lang/Ast.h
-        lang/Ast.c)
+        lang/Ast.c
+        runtime/Databse.h
+        runtime/Database.c)
