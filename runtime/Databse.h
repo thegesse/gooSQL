@@ -3,9 +3,16 @@
 #include <stddef.h>
 #include "../lang/Ast.h"
 
+typedef enum {
+    COL_TYPE_INT,
+    COL_TYPE_TEXT,
+    COL_TYPE_FLOAT,
+    COL_TYPE_UNKNOWN
+} ColumnType;
+
 typedef struct {
     char *name;
-    char *type;
+    ColumnType type;
 } ColumnsSchema;
 
 typedef struct  {

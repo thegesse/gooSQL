@@ -9,7 +9,7 @@ int main(void) {
     Database db;
     db_init(&db);
 
-    const char *sql = "CREATE TABLE test (id INT, name TEXT, age INT, extra ASDASD);";
+    const char *sql = "CREATE TABLE users (id INT, name TEXT)";
     struct Parser parser = parser_init(sql);
     ASTNode *root = parse_statement(&parser);
 
