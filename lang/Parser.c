@@ -219,9 +219,140 @@ ASTNode* parse_select_statement(struct Parser *p) {
     return node;
 }
 
+char *parse_type_name(struct Parser *p) {
+    if (p->current_token.type == Id || p->current_token.type == Keyword) {
+        char *type_name = strdup(p->current_token.value);
+        advance_token(p);
+        return type_name;
+    } else {
+        fprintf(stderr, "Syntax Error: expected type name\n");
+        return NULL;
+    }
+}
+
+ASTNode* parse_column_def(struct Parser *p) {
+    if (p->current_token.type != Id) {
+        fprintf(stderr, "Syntax Error: expected 'Id'\n");
+        return NULL;
+    }
+    char* column_name = strdup(p->current_token.value);
+    advance_token(p);
+
+    char* type_name = parse_type_name(p);
+    if (type_name == NULL) {
+        free(column_name);
+        return NULL;
+    }
+
+    ASTNode* node = create_node(NODE_COLUMN_DEF);
+    if (node == NULL) {
+        free(type_name);
+        free(column_name);
+        return NULL;
+    }
+    node->data.column_def.column_name = column_name;
+    node->data.column_def.type_name = type_name;
+    return node;
+}
+
+ASTNode* parse_column_def_list(struct Parser *p) {
+    ASTNode* first_col = parse_column_def(p);
+    if (first_col == NULL) {
+        return NULL;
+    }
+
+    ASTNode* head = create_node(NODE_COLUMN_LIST);
+    if (head == NULL) return NULL;
+
+    head->data.list.current = first_col;
+    head->data.list.next = NULL;
+    ASTNode* current = head;
+
+    while (p->current_token.type == ',') {
+        advance_token(p);
+
+        ASTNode* next_col = parse_column_def(p);
+        if (next_col == NULL) {
+            free(current->data.list.current);
+            return NULL;
+        }
+
+        ASTNode* next_list_node = create_node(NODE_COLUMN_LIST);
+        if (next_list_node == NULL) {
+            free(current->data.list.current);
+            return NULL;
+        }
+
+        next_list_node->data.list.current = next_col;
+        next_list_node->data.list.next = NULL;
+        current->data.list.next = next_list_node;
+        current = next_list_node;
+    }
+    return head;
+}
+
+ASTNode* parse_create_table_statement(struct Parser *p) {
+    if (!is_keyword(p,"CREATE")) {
+        fprintf(stderr, "Syntax Error: expected 'CREATE'\n");
+        return NULL;
+    }
+    advance_token(p);
+
+     if (!is_keyword(p,"TABLE")) {
+         fprintf(stderr, "Syntax Error: expected 'TABLE'\n");
+         return NULL;
+     }
+    advance_token(p);
+
+    if (p->current_token.type != Id) {
+        fprintf(stderr, "Syntax Error: expected 'ID'\n");
+        return NULL;
+    }
+    char* table_name = strdup(p->current_token.value);
+    advance_token(p);
+
+    if (p->current_token.type != '(') {
+        fprintf(stderr, "Syntax Error: expected '('\n");
+        free(table_name);
+        return NULL;
+    }
+    advance_token(p);
+
+    ASTNode* column_list = parse_column_def_list(p);
+    if (column_list == NULL) {
+        free(table_name);
+        return NULL;
+    }
+
+    if (p->current_token.type != ')') {
+        fprintf(stderr, "Syntax Error: expected ')'\n");
+        free(table_name);
+        free_node(column_list);
+        return NULL;
+    }
+    advance_token(p);
+
+    if (p->current_token.type == ';') {
+        advance_token(p);
+    }
+
+    ASTNode* node = create_node(NODE_CREATE_TABLE_STMT);
+    if (node == NULL) {
+        free(table_name);
+        return NULL;
+    }
+    node->data.create_table.table_name = table_name;
+    node->data.create_table.columns = column_list;
+
+    return node;
+}
+
 ASTNode* parse_statement(struct Parser *p) {
     if (is_keyword(p,"SELECT")) {
         return parse_select_statement(p);
+    }
+    if (is_keyword(p, "CREATE")) {
+        return parse_create_table_statement(p);
     }
 
     fprintf(stderr, "Error: Unsupported statement starting with '%s'\n",

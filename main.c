@@ -6,7 +6,7 @@
 int main(void) {
     init_keywords();
 
-    const char *sql = "SELECT name FROM users WHERE id = 10;";
+    const char *sql = "CREATE TABLE users (id INT, name TEXT);";
     struct Parser parser = parser_init(sql);
     ASTNode *root = parse_statement(&parser);
 
