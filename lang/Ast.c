@@ -64,6 +64,10 @@ void free_node(ASTNode *node) {
             free(node->data.column_def.column_name);
             free(node->data.column_def.type_name);
             break;
+        case NODE_INSERT_STMT:
+            free(node->data.insert_stmt.table_name);
+            free_node(node->data.insert_stmt.values);
+            break;
     }
     free(node);
 }
@@ -181,6 +185,15 @@ void print_ast(ASTNode *node, int indent) {
             printf("column name %s\n", node->data.column_def.column_name);
             print_indent(indent + 4);
             printf("DEF: %s\n", node->data.column_def.type_name);
+            break;
+        case NODE_INSERT_STMT:
+            print_indent(indent);
+            printf("INSERT_STMT:\n");
+            print_indent(indent + 2);
+            printf("TABLE: %s\n", node->data.insert_stmt.table_name);
+            print_indent(indent + 2);
+            printf("VALUES:\n");
+            print_ast(node->data.insert_stmt.values, indent + 4);
             break;
     }
 }

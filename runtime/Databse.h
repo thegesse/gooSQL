@@ -10,6 +10,26 @@ typedef enum {
     COL_TYPE_UNKNOWN
 } ColumnType;
 
+typedef enum {
+    VAL_INT,
+    VAL_TEXT,
+    VAL_FLOAT
+} ValueType;
+
+typedef struct {
+    ValueType type;
+    union {
+        int i_val;
+        double f_val;
+        char *s_val;
+    } as;
+} Value;
+
+typedef struct {
+    Value *values;
+    size_t value_count;
+} Row;
+
 typedef struct {
     char *name;
     ColumnType type;
@@ -19,16 +39,19 @@ typedef struct  {
     char *name;
     ColumnsSchema *columns;
     size_t column_count;
-} TableSchema;
+    Row *rows;
+    size_t row_count;
+} Table;
 
 typedef struct  {
-    TableSchema *tables;
+    Table *tables;
     size_t table_count;
 } Database;
 
 void db_init(Database *db);
 void db_free(Database *db);
 int execute_create_table(Database *db, ASTNode *node);
+int execute_insert(Database *db, ASTNode *node);
 void db_print(Database *db);
 
 #endif
