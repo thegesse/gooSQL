@@ -229,6 +229,128 @@ int execute_insert(Database *db, ASTNode *node) {
     return 1;
 }
 
+int row_matches_where(const Table *table, const Row *row, ASTNode *expr) {
+    if (!table || !row || !expr) {
+        return 0;
+    }
+
+    if (expr->type != NODE_BINARY) {
+        return 0;
+    }
+    if (expr->op != '=' && expr->op != Eq) {
+        return 0;
+    }
+    ASTNode *left = expr->data.binary.left;
+    ASTNode *right = expr->data.binary.right;
+
+    if (!left || left->type != NODE_ID || !right) {
+        return 0;
+    }
+
+    //for col index
+    int col_index = -1;
+    for (size_t i = 0; i < table->column_count; i++) {
+        if (strcmp(table->columns[i].name, left->data.s_val) == 0) {
+            col_index = (int)i;
+            break;
+        }
+    }
+    if (col_index == -1) {
+        return 0;//notfoundinnit
+    }
+    //rows
+    Value *val = &row->values[col_index];
+     if (right->type == NODE_NUM) {
+         if (val->type == VAL_INT) {
+             return val->as.i_val == (int)right->data.d_val;
+         }
+         if (val->type == VAL_FLOAT) {
+             return val->as.f_val == right->data.d_val;
+         }
+         return 0;
+     }
+    if (right->type == NODE_STR) {
+        if (val->type != VAL_TEXT || val->as.s_val == NULL) {
+            return 0;
+        }
+        return strcmp(val->as.s_val, right->data.s_val) == 0;
+    }
+    return 0;
+}
+
+int execute_select(Database *db, ASTNode *node) {
+    if (node == NULL || db == NULL || node->type != NODE_SELECT_STMT) {
+        return 0;
+    }
+    Table *table = NULL;
+    for (size_t i = 0; i < db->table_count; i++) {
+        if (strcmp(db->tables[i].name, node->data.select_stmt.table_name) == 0) {
+            table = &db->tables[i];
+            break;
+        }
+    }
+    if (table == NULL) {
+        fprintf(stderr, "Error: table '%s' not found\n", node->data.select_stmt.table_name);
+        return 0;
+    }
+    //SELECT * part
+    ASTNode *select_list = node->data.select_stmt.select_list;
+
+    if (select_list == NULL || select_list->data.list.current->type != NODE_WILDCARD) {
+        //TODO remove this later when I can select objects aswell
+        fprintf(stderr, "Error: only SELECT * is currently supported\n");
+        return 0;
+    }
+
+    //print table
+    printf("Table: %s\n", table->name);
+    for (size_t i = 0; i < table->column_count; i++) {
+        printf("%s", table->columns[i].name);
+        if (i < table->column_count - 1) {
+            printf(" | ");
+        }
+    }
+    printf("\n");
+    //rows
+    if (table->row_count == 0) {
+        printf("Rows: 0 \n");
+        return 1;
+    }
+    for (size_t r = 0; r < table->row_count; r++) {
+        Row *row = &table->rows[r];
+        //check for where statement
+        if (node->data.select_stmt.where_clause) {
+            if (!row_matches_where(table, row, node->data.select_stmt.where_clause)) {
+                continue;
+            }
+        }
+        for (size_t i = 0; i < row->value_count; i++) {
+            Value *value = &row->values[i];
+
+            switch (value->type) {
+                case VAL_INT:
+                    printf("%d", value->as.i_val);
+                    break;
+                case VAL_FLOAT:
+                    printf("%f", value->as.f_val);
+                    break;
+                case VAL_TEXT:
+                    if (value->as.s_val != NULL) {
+                        printf("%s", value->as.s_val);
+                    } else {
+                        printf("NULL");
+                    }
+                    break;
+            }
+            if (i < row->value_count - 1) {
+                printf(" | ");
+            }
+        }
+        printf("\n");
+    }
+    return 1;
+}
+
 //debug see if db storage works well
 void db_print(Database *db) {
     if (!db || !db->tables) {

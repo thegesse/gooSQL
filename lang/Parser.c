@@ -54,7 +54,7 @@ void expect(struct Parser *p, const int expected_type) {
 }
 //helper for parse_expressions
 bool is_binop(int type) {
-    return type == Eq || type == Ne || type == Le ||
+    return type == '=' || type == Eq || type == Ne || type == Le ||
            type == Ge || type == '<' || type == '>';
 }
 // actual functuons

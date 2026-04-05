@@ -2,6 +2,7 @@
 #define DATABASE_H
 #include <stddef.h>
 #include "../lang/Ast.h"
+#include "../lang/lexer.h"
 
 typedef enum {
     COL_TYPE_INT,
@@ -53,5 +54,7 @@ void db_free(Database *db);
 int execute_create_table(Database *db, ASTNode *node);
 int execute_insert(Database *db, ASTNode *node);
 void db_print(Database *db);
+int execute_select(Database *db, ASTNode *node);
+int row_matches_where(const Table *table, const Row *row, ASTNode *expr);
 
 #endif
