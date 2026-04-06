@@ -409,29 +409,108 @@ ASTNode* parse_value_list(struct Parser *p) {
     return head;
 }
 
+ASTNode* parse_identifier_list(struct Parser *p) {
+    ASTNode* head = NULL;
+    ASTNode* tail = NULL;
+
+    while (1) {
+        if (p->current_token.type != Id) {
+            fprintf(stderr, "Syntax Error: expected identifier\n");
+            free_node(head);
+            return NULL;
+        }
+
+        ASTNode* id_node = create_node(NODE_ID);
+        if (!id_node) {
+            free_node(head);
+            return NULL;
+        }
+
+        id_node->data.s_val = strdup(p->current_token.value);
+        advance_token(p);
+
+        ASTNode* list_node = create_node(NODE_COLUMN_LIST);
+        if (!list_node) {
+            free_node(id_node);
+            free_node(head);
+            return NULL;
+        }
+
+        list_node->data.list.current = id_node;
+        list_node->data.list.next = NULL;
+
+        if (head == NULL) {
+            head = tail = list_node;
+        } else {
+            tail->data.list.next = list_node;
+            tail = list_node;
+        }
+
+        if (p->current_token.type == ',') {
+            advance_token(p);
+            continue;
+        }
+
+        break;
+    }
+
+    return head;
+}
+
 ASTNode* parse_insert_statement(struct Parser *p) {
-    if (!is_keyword(p,"INSERT")) {
+    if (!is_keyword(p, "INSERT")) {
         fprintf(stderr, "Syntax Error: expected 'INSERT'\n");
         return NULL;
     }
     advance_token(p);
 
-    if (!is_keyword(p,"INTO")) {
+    if (!is_keyword(p, "INTO")) {
         fprintf(stderr, "Syntax Error: expected 'INTO'\n");
         return NULL;
     }
     advance_token(p);
 
+    if (p->current_token.type != Id) {
+        fprintf(stderr, "Syntax Error: expected table name\n");
+        return NULL;
+    }
+
     char* table_name = strdup(p->current_token.value);
     advance_token(p);
-    if (!is_keyword(p,"VALUES")) {
+
+    ASTNode* columns = NULL;
+
+    //column list
+    if (p->current_token.type == '(') {
+        advance_token(p);
+
+        columns = parse_identifier_list(p);
+        if (columns == NULL) {
+            free(table_name);
+            return NULL;
+        }
+
+        if (p->current_token.type != ')') {
+            fprintf(stderr, "Syntax Error: expected ')'\n");
+            free_node(columns);
+            free(table_name);
+            return NULL;
+        }
+        advance_token(p);
+    }
+
+    //require VALUES
+    if (!is_keyword(p, "VALUES")) {
         fprintf(stderr, "Syntax Error: expected 'VALUES'\n");
+        free_node(columns);
+        free(table_name);
         return NULL;
     }
     advance_token(p);
 
     if (p->current_token.type != '(') {
         fprintf(stderr, "Syntax Error: expected '('\n");
+        free_node(columns);
         free(table_name);
         return NULL;
     }
@@ -439,12 +518,14 @@ ASTNode* parse_insert_statement(struct Parser *p) {
 
     ASTNode* value_list = parse_value_list(p);
     if (value_list == NULL) {
+        free_node(columns);
         free(table_name);
         return NULL;
     }
 
     if (p->current_token.type != ')') {
         fprintf(stderr, "Syntax Error: expected ')'\n");
+        free_node(columns);
         free_node(value_list);
         free(table_name);
         return NULL;
@@ -457,14 +538,19 @@ ASTNode* parse_insert_statement(struct Parser *p) {
 
     ASTNode* node = create_node(NODE_INSERT_STMT);
     if (!node) {
-        free(table_name);
+        free_node(columns);
         free_node(value_list);
+        free(table_name);
         return NULL;
     }
+
     node->data.insert_stmt.table_name = table_name;
+    node->data.insert_stmt.columns = columns;
     node->data.insert_stmt.values = value_list;
+
     return node;
 }
+
 
 ASTNode* parse_statement(struct Parser *p) {
     if (is_keyword(p,"SELECT")) {

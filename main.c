@@ -61,6 +61,22 @@ int main(void) {
                             "SELECT * FROM users;", 1);
 
     total++;
+    passed += run_statement(&db, "Select id only",
+                            "SELECT id FROM users;", 1);
+
+    total++;
+    passed += run_statement(&db, "Select name only",
+                            "SELECT name FROM users;", 1);
+
+    total++;
+    passed += run_statement(&db, "Select id and name",
+                            "SELECT id, name FROM users;", 1);
+
+    total++;
+    passed += run_statement(&db, "Reject missing selected column",
+                            "SELECT missing FROM users;", 0);
+
+    total++;
     passed += run_statement(&db, "Where by id matches",
                             "SELECT * FROM users WHERE id = 1;", 1);
 
@@ -95,6 +111,30 @@ int main(void) {
     total++;
     passed += run_statement(&db, "Reject missing table",
                             "INSERT INTO missing VALUES (1, 'bob');", 0);
+
+    total++;
+    passed += run_statement(&db, "Insert with explicit columns",
+                            "INSERT INTO users (id, name) VALUES (2, 'alice');", 1);
+
+    total++;
+    passed += run_statement(&db, "Insert with reordered columns",
+                            "INSERT INTO users (name, id) VALUES ('charlie', 3);", 1);
+
+    total++;
+    passed += run_statement(&db, "Reject omitted columns",
+                            "INSERT INTO users (id) VALUES (4);", 0);
+
+    total++;
+    passed += run_statement(&db, "Reject missing insert column",
+                            "INSERT INTO users (missing, name) VALUES (5, 'dave');", 0);
+
+    total++;
+    passed += run_statement(&db, "Reject duplicate insert column",
+                            "INSERT INTO users (id, id) VALUES (6, 7);", 0);
+
+    total++;
+    passed += run_statement(&db, "Reject explicit-column type mismatch",
+                            "INSERT INTO users (name, id) VALUES (8, 'eve');", 0);
 
     printf("\nSummary: %d/%d tests passed\n", passed, total);
     printf("\nDatabase state after tests:\n");

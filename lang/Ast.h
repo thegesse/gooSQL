@@ -45,6 +45,7 @@ typedef struct ASTNode {
         struct {
             char *table_name;
             struct ASTNode *values;
+            struct ASTNode *columns;
         } insert_stmt;
     } data;
 } ASTNode;

@@ -67,6 +67,7 @@ void free_node(ASTNode *node) {
         case NODE_INSERT_STMT:
             free(node->data.insert_stmt.table_name);
             free_node(node->data.insert_stmt.values);
+            free_node(node->data.insert_stmt.columns);
             break;
     }
     free(node);
@@ -145,6 +146,8 @@ void print_ast(ASTNode *node, int indent) {
             break;
         case NODE_COLUMN_LIST:
             print_ast(node->data.list.current, indent);
+            printf("- ");
+            print_ast(node->data.list.current, 0);
             if (node->data.list.next != NULL) {
                 print_ast(node->data.list.next, indent);
             }
@@ -156,7 +159,7 @@ void print_ast(ASTNode *node, int indent) {
 
             print_indent(indent + 2);
             printf("COLUMNS:\n");
-            print_ast(node->data.select_stmt.select_list, indent);
+            print_ast(node->data.select_stmt.select_list, indent + 4);
 
             print_indent(indent + 2);
             printf("TABLE: %s\n", node->data.select_stmt.table_name);
@@ -164,7 +167,7 @@ void print_ast(ASTNode *node, int indent) {
             if (node->data.select_stmt.where_clause != NULL) {
                 print_indent(indent + 2);
                 printf("WHERE_CLAUSE:\n");
-                print_ast(node->data.select_stmt.where_clause, indent);
+                print_ast(node->data.select_stmt.where_clause, indent + 4);
             }
             break;
         case NODE_CREATE_TABLE_STMT:
@@ -191,6 +194,11 @@ void print_ast(ASTNode *node, int indent) {
             printf("INSERT_STMT:\n");
             print_indent(indent + 2);
             printf("TABLE: %s\n", node->data.insert_stmt.table_name);
+            if (node->data.insert_stmt.columns != NULL) {
+                print_indent(indent + 2);
+                printf("COLUMNS:\n");
+                print_ast(node->data.insert_stmt.columns, indent + 4);
+            }
             print_indent(indent + 2);
             printf("VALUES:\n");
             print_ast(node->data.insert_stmt.values, indent + 4);

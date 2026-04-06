@@ -144,6 +144,7 @@ int execute_insert(Database *db, ASTNode *node) {
     if (node == NULL || db == NULL || node->type != NODE_INSERT_STMT) {
         return 0;
     }
+
     Table *table = NULL;
     for (size_t i = 0; i < db->table_count; i++) {
         if (strcmp(db->tables[i].name, node->data.insert_stmt.table_name) == 0) {
@@ -151,35 +152,112 @@ int execute_insert(Database *db, ASTNode *node) {
             break;
         }
     }
-    if (table == NULL) {
+
+    if (!table) {
         fprintf(stderr, "Error: table '%s' not found\n",
                 node->data.insert_stmt.table_name);
         return 0;
     }
 
+    // Count values
     size_t value_count = 0;
-    for (ASTNode *cur = node->data.insert_stmt.values; cur != NULL; cur = cur->data.list.next) {
+    for (ASTNode *cur = node->data.insert_stmt.values; cur; cur = cur->data.list.next) {
         value_count++;
     }
 
-    if (value_count != table->column_count) {
-        fprintf(stderr, "Error: expected %zu values, got %zu\n",
-                table->column_count, value_count);
-        return 0;
+    ASTNode *columns = node->data.insert_stmt.columns;
+
+    //no column list
+    if (columns == NULL) {
+        if (value_count != table->column_count) {
+            fprintf(stderr, "Error: expected %zu values, got %zu\n",
+                    table->column_count, value_count);
+            return 0;
+        }
     }
 
+    //column list present
+    int column_map[table->column_count];
+    size_t column_count = 0;
+
+    if (columns != NULL) {
+        int used[table->column_count];
+        memset(used, 0, sizeof(used));
+
+        ASTNode *cur = columns;
+
+        while (cur) {
+            ASTNode *col_node = cur->data.list.current;
+
+            if (!col_node || col_node->type != NODE_ID) {
+                fprintf(stderr, "Error: invalid column in INSERT\n");
+                return 0;
+            }
+
+            int found = -1;
+            for (size_t i = 0; i < table->column_count; i++) {
+                if (strcmp(table->columns[i].name, col_node->data.s_val) == 0) {
+                    found = (int)i;
+                    break;
+                }
+            }
+
+            if (found == -1) {
+                fprintf(stderr, "Error: column '%s' not found\n",
+                        col_node->data.s_val);
+                return 0;
+            }
+
+            if (used[found]) {
+                fprintf(stderr, "Error: duplicate column '%s'\n",
+                        col_node->data.s_val);
+                return 0;
+            }
+
+            used[found] = 1;
+            column_map[column_count++] = found;
+
+            cur = cur->data.list.next;
+        }
+
+        // 🔥 KEY RULE: must provide ALL columns
+        if (column_count != table->column_count) {
+            fprintf(stderr,
+                    "Error: must provide all columns (%zu), got %zu\n",
+                    table->column_count, column_count);
+            return 0;
+        }
+
+        if (column_count != value_count) {
+            fprintf(stderr,
+                    "Error: column count (%zu) != value count (%zu)\n",
+                    column_count, value_count);
+            return 0;
+        }
+    }
+
+    // Allocate full row
     Row new_row;
-    new_row.values = malloc(sizeof(Value) * value_count);
-    new_row.value_count = value_count;
-    if (!new_row.values) {
-        return 0;
-    }
+    new_row.value_count = table->column_count;
+    new_row.values = malloc(sizeof(Value) * table->column_count);
+    if (!new_row.values) return 0;
 
+
+    ASTNode *val_cur = node->data.insert_stmt.values;
     size_t i = 0;
-    for (ASTNode *cur = node->data.insert_stmt.values; cur != NULL; cur = cur->data.list.next, i++) {
-        ASTNode *val_node = cur->data.list.current;
-        ColumnType col_type = table->columns[i].type;
-        Value *dest = &new_row.values[i];
+
+    while (val_cur) {
+        ASTNode *val_node = val_cur->data.list.current;
+
+        int target_index;
+        if (columns == NULL) {
+            target_index = (int)i;
+        } else {
+            target_index = column_map[i];
+        }
+
+        ColumnType col_type = table->columns[target_index].type;
+        Value *dest = &new_row.values[target_index];
 
         if (val_node->type == NODE_NUM) {
             if (col_type == COL_TYPE_INT) {
@@ -189,43 +267,40 @@ int execute_insert(Database *db, ASTNode *node) {
                 dest->type = VAL_FLOAT;
                 dest->as.f_val = val_node->data.d_val;
             } else {
-                fprintf(stderr, "Error: unsupported column type '%s'\n", table->columns[i].name);
+                fprintf(stderr, "Type mismatch for column '%s'\n",
+                        table->columns[target_index].name);
                 free(new_row.values);
                 return 0;
             }
         } else if (val_node->type == NODE_STR) {
             if (col_type != COL_TYPE_TEXT) {
-                fprintf(stderr, "Error: unsupported column type '%s'\n", table->columns[i].name);
+                fprintf(stderr, "Type mismatch for column '%s'\n",
+                        table->columns[target_index].name);
                 free(new_row.values);
                 return 0;
             }
             dest->type = VAL_TEXT;
             dest->as.s_val = strdup(val_node->data.s_val);
-        }
-        else if (val_node->type == NODE_NULL) {
-            fprintf(stderr, "Error: NULL values are not supported yet\n");
-            free(new_row.values);
-            return 0;
-        }
-        else {
+        } else {
             fprintf(stderr, "Error: unsupported value\n");
             free(new_row.values);
             return 0;
         }
+
+        val_cur = val_cur->data.list.next;
+        i++;
     }
+
+
     Row *tmp = realloc(table->rows, sizeof(Row) * (table->row_count + 1));
     if (!tmp) {
-        for (size_t j = 0; j < i; j++) {
-            if (new_row.values[j].type == VAL_TEXT) {
-                free(new_row.values[j].as.s_val);
-            }
-        }
         free(new_row.values);
         return 0;
     }
+
     table->rows = tmp;
-    table->rows[table->row_count] = new_row;
-    table->row_count++;
+    table->rows[table->row_count++] = new_row;
+
     return 1;
 }
 
@@ -296,18 +371,81 @@ int execute_select(Database *db, ASTNode *node) {
     //SELECT * part
     ASTNode *select_list = node->data.select_stmt.select_list;
 
-    if (select_list == NULL || select_list->data.list.current->type != NODE_WILDCARD) {
-        //TODO remove this later when I can select objects aswell
-        fprintf(stderr, "Error: only SELECT * is currently supported\n");
-        return 0;
+    int use_wildcard = 0;
+    if (select_list != NULL) {
+        if (select_list->type == NODE_WILDCARD) {
+            use_wildcard = 1;
+        } else if (select_list->type == NODE_COLUMN_LIST &&
+                   select_list->data.list.current != NULL &&
+                   select_list->data.list.current->type == NODE_WILDCARD) {
+            use_wildcard = 1;
+                   }
+    }
+
+    int selected_indexes[table->column_count];
+    size_t selected_count = 0;
+    if (!use_wildcard) {
+        if (select_list->type == NODE_ID) {
+            int found = -1;
+            for (size_t i = 0; i < table->column_count; i++) {
+                if (strcmp(table->columns[i].name, select_list->data.s_val) == 0) {
+                    found = (int)i;
+                    break;
+                }
+            }
+            if (found == -1) {
+                fprintf(stderr, "Error: col %s not found\n", select_list->data.s_val);
+                return 0;
+            }
+            selected_indexes[selected_count++] = found;
+        } else if (select_list->type == NODE_COLUMN_LIST) {
+            ASTNode *curr = select_list;
+
+            while (curr) {
+                ASTNode *item = curr->data.list.current;
+
+                if (item == NULL || item->type != NODE_ID) {
+                    fprintf(stderr, "Error: invalid selected column in SELECT\n");
+                    return 0;
+                }
+
+                int found = -1;
+                for (size_t i = 0; i < table->column_count; i++) {
+                    if (strcmp(table->columns[i].name, item->data.s_val) == 0) {
+                        found = (int)i;
+                        break;
+                    }
+                }
+
+                if (found == -1) {
+                    fprintf(stderr, "Error: col %s not found\n", item->data.s_val);
+                    return 0;
+                }
+
+                selected_indexes[selected_count++] = found;
+                curr = curr->data.list.next;
+            }
+        } else {
+            fprintf(stderr, "Error: invalid selected column in SELECT\n");
+            return 0;
+        }
     }
 
     //print table
     printf("Table: %s\n", table->name);
-    for (size_t i = 0; i < table->column_count; i++) {
-        printf("%s", table->columns[i].name);
-        if (i < table->column_count - 1) {
-            printf(" | ");
+    if (use_wildcard) {
+        for (size_t i = 0; i < table->column_count; i++) {
+            printf("%s", table->columns[i].name);
+            if (i < table->column_count - 1) {
+                printf(" | ");
+            }
+        }
+    } else {
+        for (size_t i = 0; i < selected_count; i++) {
+            printf("%s", table->columns[selected_indexes[i]].name);
+            if (i < selected_count - 1) {
+                printf(" | ");
+            }
         }
     }
     printf("\n");
@@ -324,26 +462,31 @@ int execute_select(Database *db, ASTNode *node) {
                 continue;
             }
         }
-        for (size_t i = 0; i < row->value_count; i++) {
-            Value *value = &row->values[i];
-
-            switch (value->type) {
-                case VAL_INT:
-                    printf("%d", value->as.i_val);
-                    break;
-                case VAL_FLOAT:
-                    printf("%f", value->as.f_val);
-                    break;
-                case VAL_TEXT:
-                    if (value->as.s_val != NULL) {
-                        printf("%s", value->as.s_val);
-                    } else {
-                        printf("NULL");
-                    }
-                    break;
+        if (use_wildcard) {
+            for (size_t i = 0; i < table->column_count; i++) {
+                Value *value = &row->values[i];
+                //1 line statements for my sanity
+                switch (value->type) {
+                    case VAL_INT: printf("%d", value->as.i_val); break;
+                    case VAL_FLOAT: printf("%f", value->as.f_val); break;
+                    case VAL_TEXT:
+                        printf("%s", value->as.s_val ? value->as.s_val : "NULL");
+                        break;
+                }
+                if (i < row->value_count - 1) printf(" | ");
             }
-            if (i < row->value_count - 1) {
-                printf(" | ");
+        } else {
+            for (size_t i = 0; i < selected_count; i++) {
+                Value *value = &row->values[selected_indexes[i]];
+
+                switch (value->type) {
+                    case VAL_INT: printf("%d", value->as.i_val); break;
+                    case VAL_FLOAT: printf("%f", value->as.f_val); break;
+                    case VAL_TEXT:
+                        printf("%s", value->as.s_val ? value->as.s_val : "NULL");
+                        break;
+                }
+                if (i < selected_count - 1) printf(" | ");
             }
         }
         printf("\n");
