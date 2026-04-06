@@ -551,6 +551,36 @@ ASTNode* parse_insert_statement(struct Parser *p) {
     return node;
 }
 
+ASTNode *parse_drop_table_stmt(struct Parser *p) {
+    if (!is_keyword(p, "DROP")) {
+        fprintf(stderr, "Syntax Error: expected 'DROP'\n");
+        return NULL;
+    }
+    advance_token(p);
+    if (!is_keyword(p, "TABLE")) {
+        fprintf(stderr, "Syntax Error: expected 'TABLE'\n");
+        return NULL;
+    }
+    advance_token(p);
+    if (p->current_token.type != Id) {
+        fprintf(stderr, "Syntax Error: expected table name\n");
+        return NULL;
+    }
+
+    char *table_name = strdup(p->current_token.value);
+    advance_token(p);
+
+    if (p->current_token.type == ';') {
+        advance_token(p);
+    }
+    ASTNode *node = create_node(NODE_DROP_TABLE_STMT);
+    if (!node) {
+        free(table_name);
+        return NULL;
+    }
+    node->data.drop_table_stmt.table_name = table_name;
+    return node;
+}
 
 ASTNode* parse_statement(struct Parser *p) {
     if (is_keyword(p,"SELECT")) {
@@ -561,6 +591,9 @@ ASTNode* parse_statement(struct Parser *p) {
     }
     if (is_keyword(p, "INSERT")) {
         return parse_insert_statement(p);
+    }
+    if (is_keyword(p, "DROP")) {
+        return parse_drop_table_stmt(p);
     }
 
     fprintf(stderr, "Error: Unsupported statement starting with '%s'\n",

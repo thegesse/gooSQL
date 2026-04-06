@@ -494,6 +494,60 @@ int execute_select(Database *db, ASTNode *node) {
     return 1;
 }
 
+int execute_drop_table(Database *db, ASTNode *node) {
+    if (!db || !node || node->type != NODE_DROP_TABLE_STMT) {
+        return 0;
+    }
+    const char *table_name = node->data.drop_table_stmt.table_name;
+    //find table index
+    int index = -1;
+    for (size_t i = 0; i < db->table_count; i++) {
+        if (strcmp(db->tables[i].name, table_name) == 0) {
+            index = (int)i;
+            break;
+        }
+    }
+    if (index == -1) {
+        fprintf(stderr, "Error: table %s not found\n", table_name);
+        return 0;
+    }
+    Table *table = &db->tables[index];
+    free(table->name);
+
+    for (size_t j = 0; j < table->column_count; j++) {
+        free(table->columns[j].name);
+    }
+    free(table->columns);
+
+    for (size_t r = 0; r < table->row_count; r++) {
+        Row *row = &table->rows[r];
+        for (size_t v = 0; v < row->value_count; v++) {
+            Value *value = &row->values[v];
+            if (value->type == VAL_TEXT) {
+                free(value->as.s_val);
+            }
+        }
+        free(row->values);
+    }
+    free(table->rows);
+    //move tables left
+    for (size_t i = index; i < db->table_count - 1; i++) {
+        db->tables[i] = db->tables[i + 1];
+    }
+    db->table_count--;
+
+    if (db->table_count == 0) {
+        free(db->tables);
+        db->tables = NULL;
+    } else {
+        Table *tmp = realloc(db->tables, sizeof(Table) * db->table_count);
+        if (tmp) {
+            db->tables = tmp;
+        }
+    }
+    return 1;
+}
+
 //debug see if db storage works well
 void db_print(Database *db) {
     if (!db || !db->tables) {

@@ -69,6 +69,9 @@ void free_node(ASTNode *node) {
             free_node(node->data.insert_stmt.values);
             free_node(node->data.insert_stmt.columns);
             break;
+        case NODE_DROP_TABLE_STMT:
+            free(node->data.drop_table_stmt.table_name);
+            break;
     }
     free(node);
 }
@@ -146,8 +149,6 @@ void print_ast(ASTNode *node, int indent) {
             break;
         case NODE_COLUMN_LIST:
             print_ast(node->data.list.current, indent);
-            printf("- ");
-            print_ast(node->data.list.current, 0);
             if (node->data.list.next != NULL) {
                 print_ast(node->data.list.next, indent);
             }
@@ -202,6 +203,14 @@ void print_ast(ASTNode *node, int indent) {
             print_indent(indent + 2);
             printf("VALUES:\n");
             print_ast(node->data.insert_stmt.values, indent + 4);
+            break;
+        case NODE_DROP_TABLE_STMT:
+            print_indent(indent);
+            printf("DROP_TABLE_STMT:\n");
+            print_indent(indent + 2);
+            printf("TABLE:\n");
+            print_indent(indent + 4);
+            printf("%s\n", node->data.drop_table_stmt.table_name);
             break;
     }
 }

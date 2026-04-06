@@ -12,7 +12,8 @@ typedef enum {
     NODE_SELECT_STMT,
     NODE_CREATE_TABLE_STMT,
     NODE_COLUMN_DEF,
-    NODE_INSERT_STMT
+    NODE_INSERT_STMT,
+    NODE_DROP_TABLE_STMT,
 } NodeType;
 
 typedef struct ASTNode {
@@ -47,6 +48,9 @@ typedef struct ASTNode {
             struct ASTNode *values;
             struct ASTNode *columns;
         } insert_stmt;
+        struct {
+            char *table_name;
+        } drop_table_stmt;
     } data;
 } ASTNode;
 

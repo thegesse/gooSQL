@@ -15,5 +15,6 @@ bool is_keyword(const struct Parser *p, const char *word);
 bool match(struct Parser *p, int expected_type);
 void expect(struct Parser *p, int expected_type);
 ASTNode* parse_statement(struct Parser *p);
+ASTNode *parse_drop_table_stmt(struct Parser *p);
 
 #endif

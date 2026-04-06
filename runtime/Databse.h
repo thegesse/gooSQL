@@ -56,5 +56,6 @@ int execute_insert(Database *db, ASTNode *node);
 void db_print(Database *db);
 int execute_select(Database *db, ASTNode *node);
 int row_matches_where(const Table *table, const Row *row, ASTNode *expr);
+int execute_drop_table(Database *db, ASTNode *node);
 
 #endif

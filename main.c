@@ -20,9 +20,13 @@ static int run_statement(Database *db, const char *label, const char *sql, int e
             case NODE_SELECT_STMT:
                 success = execute_select(db, node);
                 break;
+            case NODE_DROP_TABLE_STMT:
+                success = execute_drop_table(db, node);
+                break;
             default:
                 success = 0;
                 break;
+
         }
     }
 
@@ -135,6 +139,23 @@ int main(void) {
     total++;
     passed += run_statement(&db, "Reject explicit-column type mismatch",
                             "INSERT INTO users (name, id) VALUES (8, 'eve');", 0);
+    total++;
+    passed += run_statement(&db, "Drop existing table",
+                            "DROP TABLE users;", 1);
+    total++;
+    passed += run_statement(&db, "Reject dropping missing table",
+                            "DROP TABLE users;", 0);
+
+    total++;
+    passed += run_statement(&db, "Reject select after drop",
+                            "SELECT * FROM users;", 0);
+
+    total++;
+    passed += run_statement(&db, "Reject insert after drop",
+                            "INSERT INTO users VALUES (1, 'bob');", 0);
+    total++;
+    passed += run_statement(&db, "Reject dropping never-existing table",
+                            "DROP TABLE missing;", 0);
 
     printf("\nSummary: %d/%d tests passed\n", passed, total);
     printf("\nDatabase state after tests:\n");
