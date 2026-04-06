@@ -10,4 +10,6 @@ add_executable(gooSQL main.c
         lang/Ast.h
         lang/Ast.c
         runtime/Databse.h
-        runtime/Database.c)
+        runtime/Database.c
+        storage/Storage.h
+        storage/Storage.c)
