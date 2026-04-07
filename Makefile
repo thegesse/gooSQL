@@ -7,7 +7,8 @@ SRC = \
 	lang/Lexer.c \
 	lang/Parser.c \
 	lang/Ast.c \
-	runtime/Database.c
+	runtime/Database.c \
+	storage/Storage.c
 
 .PHONY: all run clean
 
